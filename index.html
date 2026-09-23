@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Семья Ударцевых — интерактивное древо</title>
+<style>
+*{box-sizing:border-box} body{margin:0;background:#efe3c7;color:#2d2117;font-family:Georgia,"Times New Roman",serif}
+.toolbar{position:sticky;top:0;z-index:50;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:#f5ead1;border-bottom:2px solid #9a6b2f}
+.toolbar button,.toolbar label{border:1px solid #9a6b2f;background:#fff8e8;border-radius:9px;padding:9px 12px;font:inherit;cursor:pointer}
+.toolbar input[type=file]{display:none}
+.hint{margin-left:auto;font-size:14px}
+.viewport{overflow:auto;padding:10px}
+.tree{position:relative;width:min(1224px,100%);margin:auto;line-height:0}
+.tree img{display:block;width:100%;height:auto}
+.hot{position:absolute;z-index:20;border:0;background:transparent;cursor:pointer;border-radius:8px;padding:0}
+.hot:hover,.hot:focus-visible{outline:4px solid rgba(255,211,73,.95);background:rgba(255,245,180,.12)}
+.replacement-card{position:absolute;z-index:18;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.12;font-weight:bold;border:3px solid #8c622e;border-radius:10px;background:linear-gradient(#fff1e8,#f8d9d8);box-shadow:inset 0 0 0 2px #f6c45b;color:#3a2518;padding:4px;pointer-events:none}
+dialog{width:min(720px,94vw);max-height:90vh;border:2px solid #8c622e;border-radius:14px;padding:0;background:#fffaf0;color:#2d2117}
+dialog::backdrop{background:rgba(20,15,10,.65)}
+.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px 18px;background:#efe0bd;border-bottom:1px solid #b58b50}
+.head h2{margin:0;font-size:24px;line-height:1.15} .head p{margin:5px 0 0;line-height:1.3}
+.close{font-size:26px;border:0;background:transparent;cursor:pointer}
+.body{padding:18px;display:grid;gap:15px}
+label.field{display:grid;gap:6px;font-weight:bold}
+input[type=text],textarea{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid #b89a6c;border-radius:8px;background:white}
+textarea{min-height:120px;resize:vertical}
+.media{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.media figure{margin:0;border:1px solid #d4bd92;border-radius:10px;overflow:hidden;background:#fff}
+.media img,.media video{display:block;width:100%;max-height:260px;object-fit:contain;background:#241d16}
+.media figcaption{padding:7px;font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions button,.upload{border:1px solid #8c622e;background:#f4e3bd;border-radius:8px;padding:9px 12px;cursor:pointer;font:inherit}
+.rel{display:flex;gap:7px;flex-wrap:wrap} .rel button{border:1px solid #9b7b4d;background:#fff;border-radius:999px;padding:7px 10px;cursor:pointer}
+.note{font-size:13px;color:#6a5840;line-height:1.4}
+@media(max-width:600px){.hint{width:100%;margin-left:0} .viewport{padding:4px} .head h2{font-size:20px}}
+
+.authbox{margin-left:auto;display:flex;gap:7px;align-items:center;flex-wrap:wrap}.authbox input{width:190px;padding:8px;border:1px solid #9a6b2f;border-radius:8px;font:inherit}.status{font-size:13px;line-height:1.2}.cloud{font-size:13px;padding:5px 8px;border-radius:999px;background:#fff8e8;border:1px solid #b58b50}.cloud.ok{background:#e7f4df}.cloud.bad{background:#f8dddd}
+@media(max-width:900px){.authbox{width:100%;margin-left:0}.hint{width:100%;margin-left:0}}
+.future-wrap{position:relative;width:min(1224px,calc(100% - 20px));min-height:430px;margin:0 auto 28px;border:2px solid #9a6b2f;border-radius:16px;padding:22px 26px 28px;line-height:1.3;overflow:hidden;background:#f5ead0 url("assets/future-branches.png") center bottom/cover no-repeat}
+.future-wrap h2{margin:0 0 6px;text-align:center;text-shadow:0 1px #fff;background:#f7e9c9d9;border-radius:12px;padding:5px}.future-help{text-align:center;color:#5d452d;margin:0 auto 70px;background:#f7e9c9d9;border-radius:10px;padding:5px;width:max-content;max-width:95%}
+.future-tree{position:relative;z-index:2;display:flex;flex-direction:column;gap:18px;min-height:245px}.future-group{padding-top:8px}.future-parent{font-weight:bold;margin-bottom:9px;background:#fff8e8e8;border:1px solid #a8793c;border-radius:8px;padding:5px 8px;width:max-content}
+.future-children{display:flex;gap:12px;flex-wrap:wrap}.future-card{width:210px;min-height:92px;border:2px solid #4f7b4e;border-radius:12px;background:#f6fff0ed;padding:11px;cursor:pointer;font:inherit;text-align:left;box-shadow:0 2px 5px #0003}.future-card:hover{outline:3px solid #f2c94c}.future-card .r{font-size:12px;color:#765d3c}.future-card .n{font-weight:bold;margin:4px 0}.future-card .d{font-size:14px}.empty-future{text-align:center;color:#5b482f;padding:12px;background:#fff8e8d9;border:1px solid #b88a4e;border-radius:10px;width:max-content;max-width:90%;margin:auto}
+#addRelative{background:#e9d29f}
+
+</style>
+</head>
+<body>
+<div class="toolbar">
+  <button id="minus">−</button><button id="plus">+</button><button id="fit">Показать всё дерево</button>
+  <span class="hint">Нажмите на карточку человека — откроются сведения и фото</span>
+  <div class="authbox">
+    <span id="cloudStatus" class="cloud">Облако: подключение…</span>
+    <input id="email" type="email" placeholder="E-mail владельца" autocomplete="username">
+    <input id="password" type="text" placeholder="Пароль" autocomplete="current-password">
+    <button id="login" type="button">Войти</button><button id="logout" type="button" hidden>Выйти</button>
+  </div>
+</div>
+<div class="viewport" id="viewport">
+  <div class="tree" id="tree">
+    <img src="assets/tree.png" alt="Генеалогическое древо семьи Ударцевых">
+    <div class="replacement-card" style="left:8.99%;top:57.30%;width:17.57%;height:5.00%;">Ударцева<br>Светлана Петровна</div>
+  </div>
+</div>
+<section class="future-wrap" id="futureWrap">
+  <h2>Новые поколения семьи</h2>
+  <p class="future-help">Добавленные дети, внуки, правнуки и супруги будут появляться здесь автоматически.</p>
+  <div class="future-tree" id="futureTree"></div>
+</section>
+
+<dialog id="dlg">
+ <div class="head"><div><h2 id="title"></h2><p id="dates"></p></div><button class="close" id="close" aria-label="Закрыть">×</button></div>
+ <form class="body" id="form">
+   <label class="field">Имя и фамилия<input id="name" type="text"></label>
+   <label class="field">Годы жизни / дата рождения<input id="dateEdit" type="text"></label>
+   <label class="field">Семейная история и информация<textarea id="bio" placeholder="Напишите здесь историю человека, воспоминания, профессию, место жительства и другие сведения..."></textarea></label>
+   <div><b>Родственники</b><div class="rel" id="rels"></div></div>
+   <div class="actions">
+      <label class="upload">Добавить фото<input id="photo" type="file" accept="image/*" multiple hidden></label>
+      <label class="upload">Добавить видео с компьютера<input id="videoFile" type="file" accept="video/*" hidden></label>
+      <button id="addVideo" type="button">Добавить видео по ссылке</button>
+      <button id="addRelative" type="button">＋ Добавить родственника</button>
+      <button id="deleteRelative" type="button" style="display:none;background:#8f2f24;color:white;border-color:#6f2119">Удалить родственника</button>
+      <button type="submit">Сохранить сведения</button>
+   </div>
+   <div class="media" id="media"></div>
+   <div class="note" id="saveNote">Сведения, уменьшенные фотографии и ссылки на семейные видео синхронизируются через Firebase после входа владельца. Видео с компьютера хранится в папке videos на GitHub; видео также можно добавлять публичной ссылкой.</div>
+ </form>
+</dialog>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+const firebaseConfig={
+ apiKey:"AIzaSyBHukcCcFnWnZ8if9m6g7_Wu_yqGSO7b9Y",
+ authDomain:"tracker-for-course.firebaseapp.com",
+ projectId:"tracker-for-course",
+ storageBucket:"tracker-for-course.firebasestorage.app",
+ messagingSenderId:"27870891928",
+ appId:"1:27870891928:web:095b8374f6f57649c525ed"
+};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(), db=firebase.firestore();
+const OWNER_UID="CBnyYQN8dFbt98jNO1DJPKRNWky2";
+const PEOPLE={"artemiy": {"name": "Ударцев Артемий Дмитриевич", "dates": "1825 — ?"}, "agafya": {"name": "Киселёва Агафья Михайловна", "dates": "1840 — ?"}, "egor": {"name": "Ударцев Егор Артемьевич", "dates": "1866 — 1939"}, "lukerya": {"name": "Ударцева Лукерья Михайловна", "dates": "1866 — 1951"}, "semen": {"name": "Ударцев Семён Егорович", "dates": "1902 — 1968"}, "alexandraT": {"name": "Костромина Александра Терентьевна", "dates": "1896 — 1990"}, "nikolayS": {"name": "Ударцев Николай Семёнович", "dates": "1924 — 1993"}, "mariaF": {"name": "Шлыкова Мария Фёдоровна", "dates": "1925 — 2015"}, "ivan": {"name": "Ударцев Иван Семёнович", "dates": "1926 — 1992"}, "nina": {"name": "Косякова Нина", "dates": "1925 — 2015"}, "german": {"name": "Ударцев Герман Семёнович", "dates": "декабрь 1924 — февраль 2003"}, "lidia": {"name": "Лидия", "dates": "1928 — 1988"}, "yulia": {"name": "Ударцева Юлия Семёновна (Меланич)", "dates": "1 января 1940 — 11 мая 2024"}, "yuriM": {"name": "Меланич Юрий Васильевич", "dates": "август 1952 — январь 2000"}, "tamara": {"name": "Новикова Тамара", "dates": "1951 — ..."}, "vera": {"name": "Григорьева Вера", "dates": "1960 — ..."}, "valery": {"name": "Ударцев Валерий", "dates": "1960 — 2011"}, "olga": {"name": "Ольга", "dates": "1958 — 2016"}, "anna": {"name": "Анна", "dates": "... — ..."}, "polina": {"name": "Полина", "dates": "... — ..."}, "galina": {"name": "Комарина Галина", "dates": "1961 — ..."}, "alexKom": {"name": "Комарин Александр", "dates": "1960 — 2017"}, "elena": {"name": "Елена", "dates": "... — ..."}, "nadezhda": {"name": "Надежда", "dates": "... — ..."}, "vasiliy": {"name": "Василий", "dates": "... — ..."}, "yuriN": {"name": "Ударцев Юрий Николаевич", "dates": "1951 — 2007"}, "svetlanaP": {"name": "Ударцева Светлана Петровна", "dates": ""}, "andrey": {"name": "Ударцев Андрей Юрьевич", "dates": "1973 — ..."}, "ekaterina": {"name": "Ударцева Екатерина", "dates": ""}, "ilona": {"name": "Илона", "dates": "1999"}, "semen02": {"name": "Семён", "dates": "2002"}, "sofia18": {"name": "София", "dates": "2018"}, "yulia21": {"name": "Юлия", "dates": "2021"}, "roman": {"name": "Ударцев Роман Юрьевич", "dates": "1978 — ..."}, "irinaRoman": {"name": "Ирина", "dates": ""}, "victoria": {"name": "Виктория", "dates": "2007"}, "ludmila": {"name": "Ударцева Людмила Николаевна (Фёдорова)", "dates": "1954 — ..."}, "alexF": {"name": "Фёдоров Александр Алексеевич", "dates": ""}, "dmitry": {"name": "Фёдоров Дмитрий", "dates": "1976 — ..."}, "svetlanaG": {"name": "Светлана Гайнуллина", "dates": ""}, "alexandra00": {"name": "Александра", "dates": "2000"}, "egor14": {"name": "Егор", "dates": "2014"}, "evelina": {"name": "Эвелина", "dates": "2016"}, "irinaA": {"name": "Серёгина Ирина Александровна", "dates": "1978 — ..."}, "daniil": {"name": "Даниил", "dates": "2001"}, "alexandraA": {"name": "Фёдорова Александра Александровна", "dates": "1985 — ..."}, "maxim": {"name": "Мусин Максим", "dates": "1974"}, "matvey": {"name": "Матвей", "dates": "2006"}, "vlad": {"name": "Влад", "dates": "2007"}, "amelina": {"name": "Амелина", "dates": "2011"}, "alexN": {"name": "Ударцев Александр Николаевич", "dates": "1960 — 2011"}, "tatiana": {"name": "Ударцева Татьяна Ивановна", "dates": ""}, "nikA": {"name": "Ударцев Николай Александрович", "dates": "1990 — ..."}, "maria87": {"name": "Мария", "dates": "1987"}, "sofia13": {"name": "София", "dates": "2013"}};
+const SPOTS={"artemiy": [420, 30, 240, 90], "agafya": [686, 30, 225, 90], "egor": [420, 150, 235, 85], "lukerya": [690, 150, 230, 85], "semen": [425, 270, 235, 88], "alexandraT": [695, 270, 250, 88], "nikolayS": [160, 390, 250, 95], "mariaF": [210, 515, 220, 80], "ivan": [425, 390, 235, 95], "nina": [455, 515, 195, 80], "german": [675, 390, 210, 95], "lidia": [730, 515, 180, 80], "yulia": [895, 390, 260, 95], "yuriM": [950, 515, 245, 80], "yuriN": [85, 640, 250, 85], "svetlanaP": [110, 745, 215, 65], "andrey": [25, 850, 175, 80], "ekaterina": [25, 940, 175, 65], "ilona": [18, 1035, 85, 65], "semen02": [110, 1035, 85, 65], "sofia18": [18, 1120, 92, 62], "yulia21": [115, 1120, 92, 62], "roman": [210, 850, 175, 80], "irinaRoman": [210, 940, 175, 65], "victoria": [225, 1035, 110, 65], "ludmila": [430, 640, 265, 85], "alexF": [450, 745, 220, 65], "dmitry": [360, 850, 150, 80], "svetlanaG": [360, 940, 150, 65], "alexandra00": [365, 1035, 95, 65], "egor14": [466, 1035, 85, 65], "evelina": [395, 1120, 100, 62], "irinaA": [520, 850, 150, 80], "daniil": [548, 944, 94, 60], "alexandraA": [675, 850, 155, 80], "maxim": [675, 940, 155, 65], "matvey": [663, 1035, 85, 65], "vlad": [755, 1035, 85, 65], "amelina": [690, 1120, 105, 62], "alexN": [795, 640, 250, 85], "tatiana": [820, 745, 210, 65], "nikA": [835, 850, 180, 80], "maria87": [850, 940, 150, 65], "sofia13": [875, 1035, 110, 65]};
+const REL={"ivan": [["tamara", "дочь"], ["vera", "дочь"]], "german": [["valery", "сын"], ["galina", "дочь"]], "valery": [["olga", "супруга"], ["anna", "дочь"]], "anna": [["polina", "дочь"]], "galina": [["alexKom", "супруг"], ["elena", "дочь"], ["nadezhda", "дочь"], ["vasiliy", "сын"]]};
+const tree=document.getElementById('tree'), dlg=document.getElementById('dlg');
+const formEl=document.getElementById('form');
+const titleEl=document.getElementById('title');
+const datesEl=document.getElementById('dates');
+const nameEl=document.getElementById('name');
+const dateEditEl=document.getElementById('dateEdit');
+const bioEl=document.getElementById('bio');
+const relsEl=document.getElementById('rels');
+const mediaEl=document.getElementById('media');
+const photoEl=document.getElementById('photo');
+const closeEl=document.getElementById('close');
+const plusEl=document.getElementById('plus');
+const minusEl=document.getElementById('minus');
+const fitEl=document.getElementById('fit');
+const addVideoEl=document.getElementById('addVideo');
+const videoFileEl=document.getElementById('videoFile');
+const addRelativeEl=document.getElementById('addRelative'), deleteRelativeEl=document.getElementById('deleteRelative'), futureTreeEl=document.getElementById('futureTree');
+let scale=1,current=null;
+let saved={}; let cloudReady=false; let currentUser=null;
+try{saved=JSON.parse(localStorage.getItem('udartsevTreeData')||'{}')}catch(e){saved={}}
+function state(id){return Object.assign({},PEOPLE[id]||{name:id,dates:''},saved[id]||{},{media:(saved[id]&&saved[id].media)||[]})}
+function persistLocal(){localStorage.setItem('udartsevTreeData',JSON.stringify(saved))}
+const cloudStatus=document.getElementById('cloudStatus'), emailEl=document.getElementById('email'), passwordEl=document.getElementById('password'), loginEl=document.getElementById('login'), logoutEl=document.getElementById('logout');
+function setCloud(msg,kind=''){cloudStatus.textContent=msg;cloudStatus.className='cloud '+kind}
+async function loadCloud(){
+ try{const snap=await db.collection('familyTree').get(); snap.forEach(d=>{saved[d.id]=Object.assign({},saved[d.id]||{},d.data())}); persistLocal(); renderFutureTree(); cloudReady=true; setCloud('Облако: данные загружены','ok'); if(current)openPerson(current)}
+ catch(e){console.warn(e);setCloud('Облако: нет доступа','bad')}
+}
+auth.onAuthStateChanged(async u=>{currentUser=u; const owner=!!u&&u.uid===OWNER_UID; emailEl.hidden=owner;passwordEl.hidden=owner;loginEl.hidden=owner;logoutEl.hidden=!owner; if(owner)setCloud('Облако: режим редактирования','ok'); await loadCloud();});
+loginEl.addEventListener('click',async()=>{try{await auth.signInWithEmailAndPassword(emailEl.value.trim(),passwordEl.value);passwordEl.value=''}catch(e){alert('Не удалось войти: '+e.message)}});
+logoutEl.addEventListener('click',()=>auth.signOut());
+async function persist(id){
+ persistLocal();
+ if(!currentUser||currentUser.uid!==OWNER_UID){setCloud('Изменения только после входа','bad');return false}
+ try{await db.collection('familyTree').doc(id).set(saved[id],{merge:true});setCloud('Сохранено в Firebase','ok');renderFutureTree();return true}catch(e){console.error(e);setCloud('Ошибка сохранения','bad');alert('Firebase не сохранил данные. Проверьте правила Firestore.');return false}
+}
+
+for(const [id,[x,y,w,h]] of Object.entries(SPOTS)){
+ const b=document.createElement('button'); b.type='button'; b.className='hot'; b.dataset.id=id;
+ Object.assign(b.style,{left:(x/12.24)+'%',top:(y/12.85)+'%',width:(w/12.24)+'%',height:(h/12.85)+'%'});
+ b.setAttribute('aria-label','Открыть '+(PEOPLE[id]?.name||id)); b.addEventListener('click',(e)=>{e.preventDefault();e.stopPropagation();openPerson(id);}); tree.appendChild(b);
+}
+
+function isDynamic(id){return !!(saved[id]&&saved[id].dynamic)}
+function relationLabel(v){return ({son:'сын',daughter:'дочь',spouseM:'супруг',spouseF:'супруга',child:'ребёнок'}[v]||v||'родственник')}
+function allChildrenOf(parentId){return Object.entries(saved).filter(([id,p])=>p&&p.dynamic&&p.parentId===parentId).map(([id,p])=>[id,p])}
+function renderFutureTree(){
+ if(!futureTreeEl)return; futureTreeEl.innerHTML='';
+ const dyn=Object.entries(saved).filter(([id,p])=>p&&p.dynamic);
+ if(!dyn.length){futureTreeEl.innerHTML='<div class="empty-future">Здесь появятся новые ветви, когда вы добавите родственника из карточки человека.</div>';return}
+ const parents=[...new Set(dyn.map(([id,p])=>p.parentId).filter(Boolean))];
+ parents.forEach(pid=>{
+   const kids=allChildrenOf(pid); if(!kids.length)return;
+   const g=document.createElement('div');g.className='future-group';
+   const ph=document.createElement('div');ph.className='future-parent';ph.textContent='От '+state(pid).name+':';g.appendChild(ph);
+   const row=document.createElement('div');row.className='future-children';
+   kids.forEach(([id,p])=>{const b=document.createElement('button');b.type='button';b.className='future-card';b.innerHTML='<div class="r"></div><div class="n"></div><div class="d"></div>';b.querySelector('.r').textContent=relationLabel(p.relationType);b.querySelector('.n').textContent=p.name||'Без имени';b.querySelector('.d').textContent=p.dates||'';b.onclick=()=>openPerson(id);row.appendChild(b)});
+   g.appendChild(row);futureTreeEl.appendChild(g);
+ });
+}
+async function createRelative(){
+ if(!currentUser||currentUser.uid!==OWNER_UID){alert('Добавлять новых родственников можно после входа владельца.');return}
+ const relation=prompt('Кого добавить? Напишите: сын, дочь, супруг или супруга'); if(!relation)return;
+ const map={'сын':'son','дочь':'daughter','супруг':'spouseM','супруга':'spouseF','ребёнок':'child','ребенок':'child'};
+ const rt=map[relation.trim().toLowerCase()]; if(!rt){alert('Напишите один из вариантов: сын, дочь, супруг, супруга.');return}
+ const nm=prompt('Имя и фамилия нового родственника:'); if(!nm||!nm.trim())return;
+ const dt=prompt('Годы жизни / дата рождения (можно оставить пустым):','')||'';
+ const id='person_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+ saved[id]={dynamic:true,parentId:current,relationType:rt,name:nm.trim(),dates:dt.trim(),bio:'',media:[]};
+ if(await persist(id)){renderFutureTree();openPerson(id)}
+}
+function openPerson(id){
+ current=id; const s=state(id);
+ titleEl.textContent=s.name; datesEl.textContent=s.dates||'';
+ nameEl.value=s.name; dateEditEl.value=s.dates||''; bioEl.value=s.bio||'';
+ relsEl.innerHTML='';
+ const combinedRels=[...(REL[id]||[]),...allChildrenOf(id).map(([rid,p])=>[rid,relationLabel(p.relationType)])];
+ for(const [rid,label] of combinedRels){
+   const rb=document.createElement('button'); rb.type='button'; rb.textContent=label+': '+state(rid).name;
+   rb.addEventListener('click',()=>openPerson(rid)); relsEl.appendChild(rb);
+ }
+ if(!combinedRels.length) relsEl.textContent='—';
+ deleteRelativeEl.style.display=isDynamic(id)?'inline-block':'none';
+ renderMedia(s.media||[]); if(typeof dlg.showModal==='function'){dlg.showModal();}else{dlg.setAttribute('open','');}
+}
+function renderMedia(items){
+ mediaEl.innerHTML='';
+ items.forEach((m,i)=>{
+   const f=document.createElement('figure');
+   let el;
+   if(m.type==='videoFile'){
+     el=document.createElement('video'); el.controls=true; el.preload='metadata'; el.src=m.url;
+   }else if(m.type==='videoLink'){
+     el=document.createElement('a'); el.href=m.url; el.target='_blank'; el.rel='noopener';
+     el.textContent='▶ Смотреть семейное видео';
+     el.style.cssText='display:flex;min-height:130px;align-items:center;justify-content:center;padding:16px;text-align:center;font-weight:bold;color:#5b3b18;background:#f4e3bd;text-decoration:none';
+   }else{
+     el=document.createElement('img'); el.src=m.data; el.alt=m.name||'Фото';
+   }
+   const cap=document.createElement('figcaption'); cap.textContent=m.name||'Медиафайл';
+   const del=document.createElement('button'); del.type='button'; del.textContent='Удалить'; del.style.margin='0 7px 7px';
+   del.hidden=!(currentUser&&currentUser.uid===OWNER_UID);
+   del.addEventListener('click',async()=>{if(!confirm('Удалить этот материал?'))return;saved[current].media.splice(i,1);await persist(current);renderMedia(saved[current].media)});
+   f.append(el,cap,del); mediaEl.appendChild(f);
+ });
+ if(!items.length) mediaEl.innerHTML='<div class="note">Фото и видео пока не добавлены.</div>';
+}
+formEl.addEventListener('submit',e=>{e.preventDefault(); const old=state(current); saved[current]=Object.assign({},saved[current]||{},{name:nameEl.value.trim()||old.name,dates:dateEditEl.value.trim(),bio:bioEl.value,media:old.media||[]});persist(current);openPerson(current);});
+async function compressImage(file){
+ return new Promise((resolve,reject)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{let w=img.width,h=img.height,max=900;if(Math.max(w,h)>max){const k=max/Math.max(w,h);w=Math.round(w*k);h=Math.round(h*k)}const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(url);resolve(c.toDataURL('image/jpeg',.62))};img.onerror=reject;img.src=url})
+}
+async function addPhotos(input){
+ if(!currentUser||currentUser.uid!==OWNER_UID){alert('Чтобы добавлять фото, сначала войдите как владелец.');input.value='';return}
+ for(const file of [...input.files]){try{const data=await compressImage(file);if(data.length>500000){alert('Фото «'+file.name+'» слишком большое для облачного хранения даже после сжатия. Выберите изображение меньшего размера.');continue}const st=state(current);saved[current]=Object.assign({},saved[current]||{},{name:st.name,dates:st.dates,bio:st.bio||'',media:[...(st.media||[]),{type:'image',data,name:file.name}]});await persist(current);renderMedia(saved[current].media)}catch(e){alert('Не удалось обработать фото '+file.name)}}input.value='';
+}
+photoEl.addEventListener('change',()=>addPhotos(photoEl));
+addRelativeEl.addEventListener('click',createRelative);
+deleteRelativeEl.addEventListener('click',async()=>{
+ if(!current||!isDynamic(current))return;
+ if(!currentUser||currentUser.uid!==OWNER_UID){alert('Удалять добавленных родственников можно только после входа владельца.');return}
+ const person=state(current);
+ if(!confirm('Удалить родственника «'+person.name+'»? Это действие удалит его карточку из семейного дерева.'))return;
+ const id=current;
+ try{
+   await db.collection('familyTree').doc(id).delete();
+   delete saved[id]; persistLocal(); current=null; dlg.close(); renderFutureTree(); setCloud('Родственник удалён','ok');
+ }catch(e){console.error(e);alert('Не удалось удалить родственника из Firebase. Проверьте подключение и правила Firestore.')}
+});
+videoFileEl.addEventListener('change',async()=>{
+ if(!currentUser||currentUser.uid!==OWNER_UID){alert('Чтобы добавлять видео, сначала войдите как владелец.');videoFileEl.value='';return}
+ const file=videoFileEl.files&&videoFileEl.files[0]; if(!file)return;
+ const safe=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_');
+ const rel='videos/'+safe;
+ const st=state(current);
+ saved[current]=Object.assign({},saved[current]||{},{name:st.name,dates:st.dates,bio:st.bio||'',media:[...(st.media||[]),{type:'videoFile',url:rel,name:file.name}]});
+ await persist(current);
+ alert('Видео добавлено в карточку. Теперь положите файл «'+file.name+'» в папку videos рядом с index.html и загрузите папку videos на GitHub.');
+ renderMedia(saved[current].media); videoFileEl.value='';
+});
+
+addVideoEl.addEventListener('click',async()=>{
+ if(!currentUser||currentUser.uid!==OWNER_UID){alert('Чтобы добавлять видео, сначала войдите как владелец.');return}
+ const url=prompt('Вставьте публичную ссылку на видео (например, с Яндекс Диска):');
+ if(!url)return;
+ let u; try{u=new URL(url)}catch(e){alert('Похоже, это не ссылка. Скопируйте публичную ссылку целиком.');return}
+ if(!/^https?:$/.test(u.protocol)){alert('Нужна ссылка, начинающаяся с http:// или https://');return}
+ const title=prompt('Название видео (необязательно):','Семейное видео')||'Семейное видео';
+ const st=state(current);
+ saved[current]=Object.assign({},saved[current]||{},{name:st.name,dates:st.dates,bio:st.bio||'',media:[...(st.media||[]),{type:'videoLink',url:url,name:title}]});
+ if(await persist(current)) renderMedia(saved[current].media);
+});
+
+closeEl.addEventListener('click',()=>dlg.close());
+dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close()});
+
+function applyScale(){tree.style.width=(1224*scale)+'px'; tree.style.maxWidth='none'}
+plusEl.addEventListener('click',()=>{scale=Math.min(2,scale+.15);applyScale()});
+minusEl.addEventListener('click',()=>{scale=Math.max(.35,scale-.15);applyScale()});
+fitEl.addEventListener('click',()=>{tree.style.width='min(1224px,100%)';tree.style.maxWidth='';scale=1});
+renderFutureTree();
+
+
+</script>
+</body></html>
