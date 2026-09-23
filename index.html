@@ -15,7 +15,7 @@
 .tree img{display:block;width:100%;height:auto}
 .hot{position:absolute;z-index:20;border:0;background:transparent;cursor:pointer;border-radius:8px;padding:0}
 .hot:hover,.hot:focus-visible{outline:4px solid rgba(255,211,73,.95);background:rgba(255,245,180,.12)}
-.replacement-card{position:absolute;z-index:18;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.12;font-weight:bold;border:3px solid #8c622e;border-radius:10px;background:linear-gradient(#fff1e8,#f8d9d8);box-shadow:inset 0 0 0 2px #f6c45b;color:#3a2518;padding:4px;pointer-events:none;font-size:clamp(5px,1.31vw,16px);overflow:hidden}.added-tree-card{position:absolute;z-index:18;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.08;font-weight:bold;border:3px solid #47744b;border-radius:9px;background:#eef8e8;box-shadow:inset 0 0 0 2px #d7e9bf;color:#2d2117;padding:2px;pointer-events:none;font-size:clamp(5px,1.22vw,15px)}.branch-line{position:absolute;z-index:17;background:#3a2518;pointer-events:none}
+.replacement-card{position:absolute;z-index:18;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.12;font-weight:bold;border:1px solid #8c622e;border-radius:6px;background:#f8d9d8;color:#3a2518;padding:2px;pointer-events:none;font-size:clamp(5px,1.31vw,16px);overflow:hidden}.added-tree-card{position:absolute;z-index:18;display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.08;font-weight:bold;border:1px solid #47744b;border-radius:6px;background:#eef8e8;color:#2d2117;padding:1px;pointer-events:none;font-size:clamp(5px,1.22vw,15px)}.branch-line{position:absolute;z-index:17;background:#3a2518;pointer-events:none}
 dialog{width:min(720px,94vw);max-height:90vh;border:2px solid #8c622e;border-radius:14px;padding:0;background:#fffaf0;color:#2d2117}
 dialog::backdrop{background:rgba(20,15,10,.65)}
 .head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px 18px;background:#efe0bd;border-bottom:1px solid #b58b50}
@@ -135,8 +135,23 @@ function persistLocal(){localStorage.setItem('udartsevTreeData',JSON.stringify(s
 const cloudStatus=document.getElementById('cloudStatus'), emailEl=document.getElementById('email'), passwordEl=document.getElementById('password'), loginEl=document.getElementById('login'), logoutEl=document.getElementById('logout');
 function setCloud(msg,kind=''){cloudStatus.textContent=msg;cloudStatus.className='cloud '+kind}
 async function loadCloud(){
- try{const snap=await db.collection('familyTree').get(); snap.forEach(d=>{saved[d.id]=Object.assign({},saved[d.id]||{},d.data())}); persistLocal(); renderFutureTree(); cloudReady=true; setCloud('Облако: данные загружены','ok'); if(current)openPerson(current)}
- catch(e){console.warn(e);setCloud('Облако: нет доступа','bad')}
+ try{
+   const localBefore=JSON.parse(JSON.stringify(saved||{}));
+   const snap=await db.collection('familyTree').get();
+   const cloud={}; snap.forEach(d=>{cloud[d.id]=d.data()});
+   // Firestore — общий источник данных для всех устройств. Обычные записи берём из облака.
+   saved=cloud;
+   // Если владелец раньше создал нового родственника в старой версии сайта и запись
+   // осталась только в этом браузере, один раз переносим её в Firestore.
+   if(currentUser&&currentUser.uid===OWNER_UID){
+     for(const [id,p] of Object.entries(localBefore)){
+       if(p&&p.dynamic&&!cloud[id]){
+         try{await db.collection('familyTree').doc(id).set(p,{merge:true}); saved[id]=p}catch(err){console.warn('Не удалось перенести локального родственника',id,err)}
+       }
+     }
+   }
+   persistLocal(); renderFutureTree(); cloudReady=true; setCloud('Облако: данные загружены','ok'); if(current)openPerson(current)
+ } catch(e){console.warn(e);setCloud('Облако: нет доступа','bad')}
 }
 auth.onAuthStateChanged(async u=>{currentUser=u; const owner=!!u&&u.uid===OWNER_UID; emailEl.hidden=owner;passwordEl.hidden=owner;loginEl.hidden=owner;logoutEl.hidden=!owner; if(owner)setCloud('Облако: режим редактирования','ok'); await loadCloud();});
 loginEl.addEventListener('click',async()=>{try{await auth.signInWithEmailAndPassword(emailEl.value.trim(),passwordEl.value);passwordEl.value=''}catch(e){alert('Не удалось войти: '+e.message)}});
@@ -155,7 +170,18 @@ for(const [id,[x,y,w,h]] of Object.entries(SPOTS)){
 
 function isDynamic(id){return !!(saved[id]&&saved[id].dynamic)}
 function relationLabel(v){return ({son:'сын',daughter:'дочь',spouseM:'супруг',spouseF:'супруга',child:'ребёнок'}[v]||v||'родственник')}
-function allChildrenOf(parentId){const built=[];const cloud=Object.entries(saved).filter(([id,p])=>p&&p.dynamic&&p.parentId===parentId);const ids=new Set(cloud.map(([id])=>id));return [...built.filter(([id,p])=>p.parentId===parentId&&!ids.has(id)),...cloud]}
+function familyRootFor(id){
+ const p=saved[id];
+ // Если карточка — супруг/супруга, дети относятся к той же семейной ветви,
+ // что и у человека, к которому супруг был добавлен.
+ if(p&&p.dynamic&&(p.relationType==='spouseM'||p.relationType==='spouseF')&&p.parentId) return p.parentId;
+ return id;
+}
+function allChildrenOf(parentId){
+ const built=[];
+ const cloud=Object.entries(saved).filter(([id,p])=>p&&p.dynamic&&familyRootFor(p.parentId)===parentId&&(p.relationType==='son'||p.relationType==='daughter'||p.relationType==='child'));
+ const ids=new Set(cloud.map(([id])=>id));return [...built.filter(([id,p])=>familyRootFor(p.parentId)===parentId&&!ids.has(id)),...cloud]
+}
 function renderFutureTree(){
  if(!futureTreeEl)return; futureTreeEl.innerHTML='';
  const builtInFuture=[];
@@ -163,13 +189,14 @@ function renderFutureTree(){
  const cloudIds=new Set(cloudDyn.map(([id])=>id));
  const dyn=[...builtInFuture.filter(([id])=>!cloudIds.has(id)),...cloudDyn];
  if(!dyn.length){futureTreeEl.innerHTML='<div class="empty-future">Здесь появятся новые ветви, когда вы добавите родственника из карточки человека.</div>';return}
- const parents=[...new Set(dyn.map(([id,p])=>p.parentId).filter(Boolean))];
+ const parents=[...new Set(dyn.map(([id,p])=>familyRootFor(p.parentId)).filter(Boolean))];
  parents.forEach(pid=>{
-   const kids=allChildrenOf(pid); if(!kids.length)return;
+   const spouses=dyn.filter(([id,p])=>p.parentId===pid&&(p.relationType==='spouseM'||p.relationType==='spouseF'));
+   const kids=allChildrenOf(pid); if(!spouses.length&&!kids.length)return;
    const g=document.createElement('div');g.className='future-group';
    const ph=document.createElement('div');ph.className='future-parent';ph.textContent='От '+state(pid).name+':';g.appendChild(ph);
    const row=document.createElement('div');row.className='future-children';
-   kids.forEach(([id,p])=>{const b=document.createElement('button');b.type='button';b.className='future-card';b.innerHTML='<div class="r"></div><div class="n"></div><div class="d"></div>';b.querySelector('.r').textContent=relationLabel(p.relationType);b.querySelector('.n').textContent=p.name||'Без имени';b.querySelector('.d').textContent=p.dates||'';b.onclick=()=>openPerson(id);row.appendChild(b)});
+   [...spouses,...kids].forEach(([id,p])=>{const b=document.createElement('button');b.type='button';b.className='future-card';b.innerHTML='<div class="r"></div><div class="n"></div><div class="d"></div>';b.querySelector('.r').textContent=relationLabel(p.relationType);b.querySelector('.n').textContent=p.name||'Без имени';b.querySelector('.d').textContent=p.dates||'';b.onclick=()=>openPerson(id);row.appendChild(b)});
    g.appendChild(row);futureTreeEl.appendChild(g);
  });
 }
@@ -181,7 +208,8 @@ async function createRelative(){
  const nm=prompt('Имя и фамилия нового родственника:'); if(!nm||!nm.trim())return;
  const dt=prompt('Годы жизни / дата рождения (можно оставить пустым):','')||'';
  const id='person_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
- saved[id]={dynamic:true,parentId:current,relationType:rt,name:nm.trim(),dates:dt.trim(),bio:'',media:[]};
+ const parentForNew=(rt==='son'||rt==='daughter'||rt==='child')?familyRootFor(current):current;
+ saved[id]={dynamic:true,parentId:parentForNew,relationType:rt,name:nm.trim(),dates:dt.trim(),bio:'',media:[]};
  if(await persist(id)){renderFutureTree();openPerson(id)}
 }
 function openPerson(id){
